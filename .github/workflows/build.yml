@@ -19,8 +19,15 @@ jobs:
       - name: Build Geode Mod
         uses: geode-sdk/build-geode-mod@main
         with:
+          sdk: latest
           target: Win64
           combine: true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ListsIntegrations-Windows
+          path: output/**/*.geode
 
   build-mac:
     runs-on: macos-latest
@@ -32,5 +39,12 @@ jobs:
       - name: Build Geode Mod
         uses: geode-sdk/build-geode-mod@main
         with:
+          sdk: latest
           target: MacOS
           combine: true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ListsIntegrations-Mac
+          path: output/**/*.geode
