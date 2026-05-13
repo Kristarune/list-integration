@@ -13,32 +13,24 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Build Geode Mod
         uses: geode-sdk/build-geode-mod@main
         with:
-          target: win
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: Windows-Build
-          path: build/**/*.geode
+          target: Win64
+          combine: true
 
   build-mac:
     runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Build Geode Mod
         uses: geode-sdk/build-geode-mod@main
         with:
-          target: mac
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: Mac-Build
-          path: build/**/*.geode
+          target: MacOS
+          combine: true
