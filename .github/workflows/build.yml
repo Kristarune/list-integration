@@ -7,7 +7,7 @@ Create a file at:
 ```yaml
 name: Build Geode Mod
 
-on:
+"
   push:
     branches:
       - main
@@ -108,4 +108,15 @@ lists-integrations/
 * Push the repository to GitHub before Actions can run.
 * Built `.geode` files will appear in the Actions artifacts section.
 
-#
+## Recommended `.gitignore`
+
+Create a `.gitignore` file:
+
+```gitignore
+build/
+out/
+.vscode/
+.idea/
+*.user
+*.log
+```
