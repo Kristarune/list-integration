@@ -22,12 +22,15 @@ jobs:
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
+      - name: Install Ninja
+        run: choco install ninja -y
+
       - name: Configure CMake
         shell: cmd
         env:
           GEODE_SDK: ${{ github.workspace }}\geode-sdk
         run: |
-          cmake -B build -G "Visual Studio 17 2022" -A x64 .
+          cmake -B build -G Ninja -DGEODE_SDK=%GEODE_SDK% .
 
       - name: Build
         run: cmake --build build --config Release
