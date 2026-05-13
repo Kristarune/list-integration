@@ -58,7 +58,7 @@ jobs:
         env:
           GEODE_SDK: ${{ github.workspace }}/geode-sdk
         run: |
-          cmake -B build -G Ninja
+          cmake -B build -G Ninja -DGEODE_SDK=$GEODE_SDK .
 
       - name: Build
         run: cmake --build build
