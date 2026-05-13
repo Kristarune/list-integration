@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Geode/Geode.hpp>
-#include <Geode/ui/GeodeUI.hpp>
+#include <Geode/cocos/extensions/GUI/CCControlExtension/CCScale9Sprite.h>
 #include <cstdio>
 
 #include "ListManager.hpp"
@@ -13,6 +13,7 @@ class ListBadgeNode : public CCNode {
 public:
     static ListBadgeNode* create(const ListEntry& entry, bool showRank) {
         auto* node = new ListBadgeNode();
+
         if (node && node->init(entry, showRank)) {
             node->autorelease();
             return node;
