@@ -7,7 +7,7 @@ Create a file at:
 ```yaml
 name: Build Geode Mod
 
-"
+on:
   push:
     branches:
       - main
@@ -24,23 +24,20 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Clone Geode SDK
-        run: |
-          git clone --recursive https://github.com/geode-sdk/geode.git geode-sdk
+        run: git clone --recursive https://github.com/geode-sdk/geode.git geode-sdk
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Configure CMake
-        run: |
-          cmake -B build ^
-            -G "Visual Studio 17 2022" ^
-            -A x64
+        shell: cmd
         env:
-          GEODE_SDK: ${{ github.workspace }}/geode-sdk
+          GEODE_SDK: ${{ github.workspace }}\geode-sdk
+        run: |
+          cmake -B build -G "Visual Studio 17 2022" -A x64
 
       - name: Build
-        run: |
-          cmake --build build --config Release
+        run: cmake --build build --config Release
 
       - name: Upload built mod
         uses: actions/upload-artifact@v4
@@ -49,40 +46,6 @@ jobs:
           path: |
             build/**/*.geode
             build/**/*.dll
-
-  build-android:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Clone Geode SDK
-        run: |
-          git clone --recursive https://github.com/geode-sdk/geode.git geode-sdk
-
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y ninja-build cmake build-essential
-
-      - name: Configure CMake
-        run: |
-          cmake -B build -G Ninja
-        env:
-          GEODE_SDK: ${{ github.workspace }}/geode-sdk
-
-      - name: Build
-        run: |
-          cmake --build build
-
-      - name: Upload built mod
-        uses: actions/upload-artifact@v4
-        with:
-          name: ListsIntegrations-Android
-          path: |
-            build/**/*.geode
-            build/**/*.so
 ```
 
 ## Repository Structure
