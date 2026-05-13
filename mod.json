@@ -1,107 +1,120 @@
 {
-	"geode": "4.0.0",
-	"gd": {
-		"win": "2.2074",
-		"android": "2.2074",
-		"mac": "2.2074"
-	},
-	"id": "yourname.lists-integrations",
-	"name": "Lists Integrations",
-	"version": "v1.0.0",
-	"developer": "YourName",
-	"description": "Displays demon list rankings (AREDL, Narll, Demonlist, etc.) directly on levels in-game. Configurable via URL.",
-	"tags": ["gameplay", "online", "enhancement"],
-	"links": {
-		"source": "https://github.com/yourname/lists-integrations"
-	},
-	"settings": {
-		"show-badges": {
-			"name": "Show List Badges",
-			"description": "Display list badges on levels that appear on demon lists.",
-			"type": "bool",
-			"default": true
-		},
-		"show-rank": {
-			"name": "Show Rank Number",
-			"description": "Show the level's rank number alongside the list badge.",
-			"type": "bool",
-			"default": true
-		},
-		"aredl-enabled": {
-			"name": "Enable AREDL",
-			"description": "Fetch rankings from the All Rated Extreme Demon List.",
-			"type": "bool",
-			"default": true
-		},
-		"aredl-url": {
-			"name": "AREDL API URL",
-			"description": "API endpoint for AREDL level data.",
-			"type": "string",
-			"default": "https://api.aredl.net/api/aredl/levels"
-		},
-		"narll-enabled": {
-			"name": "Enable NARLL",
-			"description": "Fetch rankings from the Not Another Rated Level List.",
-			"type": "bool",
-			"default": true
-		},
-		"narll-url": {
-			"name": "NARLL API URL",
-			"description": "API endpoint for NARLL level data.",
-			"type": "string",
-			"default": "https://narllist.pages.dev/data/_list.json"
-		},
-		"demonlist-enabled": {
-			"name": "Enable Pointercrate Demonlist",
-			"description": "Fetch rankings from the Pointercrate Demonlist.",
-			"type": "bool",
-			"default": true
-		},
-		"demonlist-url": {
-			"name": "Demonlist API URL",
-			"description": "API endpoint for Demonlist level data.",
-			"type": "string",
-			"default": "https://pointercrate.com/api/v2/demons/listed/"
-		},
-		"custom-list-enabled": {
-			"name": "Enable Custom List",
-			"description": "Fetch rankings from a custom list API.",
-			"type": "bool",
-			"default": false
-		},
-		"custom-list-name": {
-			"name": "Custom List Name",
-			"description": "Display name for your custom list.",
-			"type": "string",
-			"default": "My List"
-		},
-		"custom-list-url": {
-			"name": "Custom List API URL",
-			"description": "Full URL to a JSON API returning level data. Must return an array with 'id' and 'position' fields.",
-			"type": "string",
-			"default": ""
-		},
-		"badge-position": {
-			"name": "Badge Position",
-			"description": "Where to display the list badge on the level cell.",
-			"type": "string",
-			"one-of": ["Top Left", "Top Right", "Bottom Left", "Bottom Right"],
-			"default": "Top Right"
-		},
-		"cache-duration": {
-			"name": "Cache Duration (minutes)",
-			"description": "How long to cache list data before re-fetching. Higher = less requests.",
-			"type": "int",
-			"default": 15,
-			"min": 1,
-			"max": 60
-		}
-	},
-	"dependencies": [
-		{
-			"id": "geode.node-ids",
-			"version": ">=1.12.0",
-			"importance": "required"
-		}
-	]
+  "geode": "5.7.1",
+
+  "gd": {
+    "win": "2.2081",
+    "mac": "2.2081"
+  },
+
+  "version": "1.0.0",
+
+  "id": "kristarune.lists-integrations",
+
+  "name": "ListsIntegrations",
+
+  "developer": "Kristarune",
+
+  "description": "Adds demon list badges from AREDL, NARLL, Pointercrate, and custom APIs directly into Geometry Dash level cells.",
+
+  "repository": "https://github.com/Kristarune/list-integration",
+
+  "tags": [
+    "interface",
+    "online",
+    "utility"
+  ],
+
+  "dependencies": {
+    "geode.node-ids": ">=1.0.0"
+  },
+
+  "settings": {
+    "show-badges": {
+      "name": "Show List Badges",
+      "description": "Display demon list badges in level cells.",
+      "type": "bool",
+      "default": true
+    },
+
+    "show-rank": {
+      "name": "Show Rank",
+      "description": "Display the level's position on the list.",
+      "type": "bool",
+      "default": true
+    },
+
+    "badge-position": {
+      "name": "Badge Position",
+      "description": "Where badges appear on level cells.",
+      "type": "string",
+      "default": "Top Right",
+      "enum": [
+        "Top Right",
+        "Top Left",
+        "Bottom Right",
+        "Bottom Left"
+      ]
+    },
+
+    "cache-duration": {
+      "name": "Cache Duration",
+      "description": "Minutes before refreshing list data.",
+      "type": "int",
+      "default": 15
+    },
+
+    "aredl-enabled": {
+      "name": "Enable AREDL",
+      "type": "bool",
+      "default": true
+    },
+
+    "aredl-url": {
+      "name": "AREDL API URL",
+      "type": "string",
+      "default": "https://api.aredl.net/api/aredl/levels"
+    },
+
+    "narll-enabled": {
+      "name": "Enable NARLL",
+      "type": "bool",
+      "default": true
+    },
+
+    "narll-url": {
+      "name": "NARLL API URL",
+      "type": "string",
+      "default": "https://api.narll.org/list"
+    },
+
+    "demonlist-enabled": {
+      "name": "Enable Pointercrate",
+      "type": "bool",
+      "default": true
+    },
+
+    "demonlist-url": {
+      "name": "Pointercrate API URL",
+      "type": "string",
+      "default": "https://pointercrate.com/api/v2/demons/listed"
+    },
+
+    "custom-list-enabled": {
+      "name": "Enable Custom List",
+      "type": "bool",
+      "default": false
+    },
+
+    "custom-list-name": {
+      "name": "Custom List Name",
+      "type": "string",
+      "default": "Custom List"
+    },
+
+    "custom-list-url": {
+      "name": "Custom List API URL",
+      "type": "string",
+      "default": ""
+    }
+  }
 }
