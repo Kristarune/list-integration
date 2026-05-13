@@ -13,100 +13,32 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Clone Geode SDK
-        run: git clone --recursive https://github.com/geode-sdk/geode.git geode-sdk
-
-      - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Install Ninja
-        run: choco install ninja -y
-
-      - name: Install Python
-        uses: actions/setup-python@v5
+      - name: Build Geode Mod
+        uses: geode-sdk/build-geode-mod@main
         with:
-          python-version: "3.11"
+          target: win
 
-      - name: Install Geode CLI
-        shell: powershell
-        run: |
-          irm https://raw.githubusercontent.com/geode-sdk/cli/main/install.ps1 | iex
-
-      - name: Add Geode to PATH
-        shell: powershell
-        run: |
-          echo "$env:USERPROFILE\.geode\bin" >> $env:GITHUB_PATH
-
-      - name: Install Geode SDK Binaries
-        shell: powershell
-        run: |
-          geode sdk install-binaries
-
-      - name: Configure CMake
-        shell: cmd
-        env:
-          GEODE_SDK: ${{ github.workspace }}\geode-sdk
-        run: |
-          cmake -B build -G Ninja -DGEODE_SDK=%GEODE_SDK% .
-
-      - name: Build
-        run: cmake --build build --config Release
-
-      - name: Upload built mod
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ListsIntegrations-Windows
-          path: |
-            build/**/*.geode
-            build/**/*.dll
+          name: Windows-Build
+          path: build/**/*.geode
 
   build-mac:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Clone Geode SDK
-        run: git clone --recursive https://github.com/geode-sdk/geode.git geode-sdk
-
-      - name: Install dependencies
-        run: |
-          brew install cmake ninja
-
-      - name: Install Python
-        uses: actions/setup-python@v5
+      - name: Build Geode Mod
+        uses: geode-sdk/build-geode-mod@main
         with:
-          python-version: "3.11"
+          target: mac
 
-      - name: Install Geode CLI
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/geode-sdk/cli/main/install.sh | bash
-
-      - name: Add Geode to PATH
-        run: |
-          echo "$HOME/.geode/bin" >> $GITHUB_PATH
-
-      - name: Install Geode SDK Binaries
-        run: |
-          geode sdk install-binaries
-
-      - name: Configure CMake
-        env:
-          GEODE_SDK: ${{ github.workspace }}/geode-sdk
-        run: |
-          cmake -B build -G Ninja -DGEODE_SDK=$GEODE_SDK .
-
-      - name: Build
-        run: cmake --build build
-
-      - name: Upload built mod
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ListsIntegrations-Mac
-          path: |
-            build/**/*.geode
-            build/**/*.dylib
+          name: Mac-Build
+          path: build/**/*.geode
