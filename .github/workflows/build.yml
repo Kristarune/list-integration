@@ -1,10 +1,3 @@
-# GitHub Actions Workflow for Geode Mod
-
-Create a file at:
-
-`.github/workflows/build.yml`
-
-```yaml
 name: Build Geode Mod
 
 on:
@@ -46,40 +39,34 @@ jobs:
           path: |
             build/**/*.geode
             build/**/*.dll
-```
 
-## Repository Structure
+  build-mac:
+    runs-on: macos-latest
 
-Your repository should look like this:
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-```text
-lists-integrations/
-├── .github/
-│   └── workflows/
-│       └── build.yml
-├── src/
-├── include/
-├── CMakeLists.txt
-├── mod.json
-└── README.md
-```
+      - name: Clone Geode SDK
+        run: git clone --recursive https://github.com/geode-sdk/geode.git geode-sdk
 
-## Important Notes
+      - name: Install dependencies
+        run: |
+          brew install cmake ninja
 
-* Replace `yourname.lists-integrations` in `mod.json` with your actual Geode mod ID.
-* Replace the GitHub source link in `mod.json`.
-* Push the repository to GitHub before Actions can run.
-* Built `.geode` files will appear in the Actions artifacts section.
+      - name: Configure CMake
+        env:
+          GEODE_SDK: ${{ github.workspace }}/geode-sdk
+        run: |
+          cmake -B build -G Ninja
 
-## Recommended `.gitignore`
+      - name: Build
+        run: cmake --build build
 
-Create a `.gitignore` file:
-
-```gitignore
-build/
-out/
-.vscode/
-.idea/
-*.user
-*.log
-```
+      - name: Upload built mod
+        uses: actions/upload-artifact@v4
+        with:
+          name: ListsIntegrations-Mac
+          path: |
+            build/**/*.geode
+            build/**/*.dylib
