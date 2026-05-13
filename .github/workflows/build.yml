@@ -1,4 +1,4 @@
- name: Build Geode Mod
+name: Build Geode Mod
 
 on:
   push:
@@ -27,15 +27,11 @@ jobs:
 
       - name: Install Geode CLI
         shell: cmd
-        run: |
-          cd geode-sdk
-          pip install -e .
+        run: pip install geode-cli
 
       - name: Install Geode Binaries
         shell: cmd
-        run: |
-          cd geode-sdk
-          geode sdk install-binaries
+        run: geode sdk install-binaries
 
       - name: Configure CMake
         shell: cmd
@@ -70,14 +66,10 @@ jobs:
           brew install cmake ninja
 
       - name: Install Geode CLI
-        run: |
-          cd geode-sdk
-          pip install -e .
+        run: pip install geode-cli
 
       - name: Install Geode Binaries
-        run: |
-          cd geode-sdk
-          geode sdk install-binaries
+        run: geode sdk install-binaries
 
       - name: Configure CMake
         env:
