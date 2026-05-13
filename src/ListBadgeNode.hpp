@@ -1,5 +1,9 @@
 #pragma once
+
 #include <Geode/Geode.hpp>
+#include <Geode/ui/GeodeUI.hpp>
+#include <cstdio>
+
 #include "ListManager.hpp"
 
 using namespace geode::prelude;
@@ -25,12 +29,12 @@ public:
         ccColor3B color = { 255, 255, 255 };
         if (entry.listColor.size() >= 7 && entry.listColor[0] == '#') {
             unsigned int r, g, b;
-            sscanf(entry.listColor.c_str() + 1, "%02x%02x%02x", &r, &g, &b);
+            std::sscanf(entry.listColor.c_str() + 1, "%02x%02x%02x", &r, &g, &b);
             color = { (GLubyte)r, (GLubyte)g, (GLubyte)b };
         }
 
         // Background pill
-        auto* bg = CCScale9Sprite::create("square02_small.png", { 0,0,40,40 });
+        auto* bg = CCScale9Sprite::create("square02_small.png", { 0, 0, 40, 40 });
         bg->setColor(color);
         bg->setOpacity(210);
 
@@ -82,13 +86,18 @@ public:
         constexpr float gap = 2.f;
 
         // Reverse so first list = top badge
-        for (int i = (int)entries.size() - 1; i >= 0; i--) {
+        for (int i = static_cast<int>(entries.size()) - 1; i >= 0; i--) {
             auto* badge = ListBadgeNode::create(entries[i], showRank);
             if (!badge) continue;
+
             badge->setPosition({ 0.f, yOffset });
             this->addChild(badge);
+
             yOffset += badge->getContentHeight() + gap;
-            if (badge->getContentWidth() > maxW) maxW = badge->getContentWidth();
+
+            if (badge->getContentWidth() > maxW) {
+                maxW = badge->getContentWidth();
+            }
         }
 
         this->setContentSize({ maxW, yOffset });
