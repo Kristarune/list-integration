@@ -1,172 +1,435 @@
-#pragma once
-
-#include <Geode/Geode.hpp>
-#include <Geode/cocos/extensions/GUI/CCControlExtension/CCScale9Sprite.h>
-#include <cstdio>
-
 #include "ListManager.hpp"
+
+#include <Geode/utils/async.hpp>
+#include <Geode/utils/web.hpp>
+#include <matjson.hpp>
 
 using namespace geode::prelude;
 
-// A small badge node that displays list name + rank
-class ListBadgeNode : public CCNode {
-public:
-    static ListBadgeNode* create(const ListEntry& entry, bool showRank) {
-        auto* node = new ListBadgeNode();
+ListManager* ListManager::get() {
+    static ListManager instance;
+    return &instance;
+}
 
-        if (node && node->init(entry, showRank)) {
-            node->autorelease();
-            return node;
-        }
+void ListManager::loadConfigs() {
+    m_configs.clear();
 
-        CC_SAFE_DELETE(node);
-        return nullptr;
+    auto* mod = Mod::get();
+
+    if (mod->getSettingValue<bool>("aredl-enabled")) {
+        m_configs.push_back({
+            "aredl",
+            "AREDL",
+            mod->getSettingValue<std::string>("aredl-url"),
+            "#FF6B35",
+            true
+        });
     }
 
-    bool init(const ListEntry& entry, bool showRank) {
-        if (!CCNode::init()) {
-            return false;
-        }
-
-        // Parse hex color
-        ccColor3B color = { 255, 255, 255 };
-
-        if (entry.listColor.size() >= 7 && entry.listColor[0] == '#') {
-            unsigned int r = 255;
-            unsigned int g = 255;
-            unsigned int b = 255;
-
-            std::sscanf(
-                entry.listColor.c_str() + 1,
-                "%02x%02x%02x",
-                &r,
-                &g,
-                &b
-            );
-
-            color = {
-                static_cast<GLubyte>(r),
-                static_cast<GLubyte>(g),
-                static_cast<GLubyte>(b)
-            };
-        }
-
-        // Background
-        auto* bg = CCScale9Sprite::create(
-            "square02_small.png",
-            CCRectMake(0.f, 0.f, 40.f, 40.f)
-        );
-
-        if (!bg) {
-            return false;
-        }
-
-        bg->setColor(color);
-        bg->setOpacity(210);
-
-        std::string label = entry.listName;
-
-        if (showRank && entry.position > 0) {
-            label += " #" + std::to_string(entry.position);
-        }
-
-        auto* text = CCLabelBMFont::create(
-            label.c_str(),
-            "bigFont.fnt"
-        );
-
-        if (!text) {
-            return false;
-        }
-
-        text->setScale(0.28f);
-        text->setColor({ 255, 255, 255 });
-        text->setAnchorPoint(CCPointMake(0.5f, 0.5f));
-
-        float w = text->getContentWidth() * text->getScale() + 8.f;
-        float h = 12.f;
-
-        bg->setContentSize(
-            CCSizeMake(
-                w / bg->getScale() + 4.f,
-                h / bg->getScale()
-            )
-        );
-
-        bg->setScale(1.f);
-        bg->setPosition(CCPointMake(w / 2.f, h / 2.f));
-
-        text->setPosition(CCPointMake(w / 2.f, h / 2.f));
-
-        this->addChild(bg);
-        this->addChild(text);
-
-        this->setContentSize(CCSizeMake(w, h));
-
-        return true;
-    }
-};
-
-// Holds multiple stacked badges
-class ListBadgeContainer : public CCNode {
-public:
-    static ListBadgeContainer* create(
-        const std::vector<ListEntry>& entries,
-        bool showRank
-    ) {
-        auto* node = new ListBadgeContainer();
-
-        if (node && node->init(entries, showRank)) {
-            node->autorelease();
-            return node;
-        }
-
-        CC_SAFE_DELETE(node);
-        return nullptr;
+    if (mod->getSettingValue<bool>("narll-enabled")) {
+        m_configs.push_back({
+            "narll",
+            "NARLL",
+            "https://raw.githubusercontent.com/The-New-Angel-s-Republic-Levels-List/NARLL/refs/heads/main/data/_list.json",
+            "#4ECDC4",
+            true
+        });
     }
 
-    bool init(
-        const std::vector<ListEntry>& entries,
-        bool showRank
-    ) {
-        if (!CCNode::init()) {
-            return false;
+    if (mod->getSettingValue<bool>("demonlist-enabled")) {
+        m_configs.push_back({
+            "demonlist",
+            "Demonlist",
+            mod->getSettingValue<std::string>("demonlist-url"),
+            "#E63946",
+            true
+        });
+    }
+
+    if (mod->getSettingValue<bool>("custom-list-enabled")) {
+        auto url = mod->getSettingValue<std::string>("custom-list-url");
+        auto name = mod->getSettingValue<std::string>("custom-list-name");
+        if (!url.empty()) {
+            m_configs.push_back({
+                "custom",
+                name,
+                url,
+                "#A8DADC",
+                true
+            });
         }
+    }
+}
 
-        float yOffset = 0.f;
-        float maxW = 0.f;
+bool ListManager::isCacheValid(const std::string& configId) const {
+    auto it = m_cache.find(configId);
+    if (it == m_cache.end()) return false;
+    if (it->second.isLoading) return true;
 
-        constexpr float gap = 2.f;
+    auto now = std::chrono::system_clock::now();
+    auto cacheMins = Mod::get()->getSettingValue<int64_t>("cache-duration");
+    auto elapsed = std::chrono::duration_cast<std::chrono::minutes>(now - it->second.fetchedAt).count();
+    return elapsed < cacheMins;
+}
 
-        for (
-            int i = static_cast<int>(entries.size()) - 1;
-            i >= 0;
-            --i
-        ) {
-            auto* badge = ListBadgeNode::create(
-                entries[i],
-                showRank
-            );
+void ListManager::fetchAllLists() {
+    for (auto& cfg : m_configs) {
+        if (!isCacheValid(cfg.id)) {
+            fetchList(cfg.id);
+        }
+    }
+}
 
-            if (!badge) {
-                continue;
+void ListManager::fetchList(const std::string& configId) {
+    ListConfig* cfg = nullptr;
+    for (auto& c : m_configs) {
+        if (c.id == configId) {
+            cfg = &c;
+            break;
+        }
+    }
+    if (!cfg) return;
+
+    m_cache[configId].isLoading = true;
+
+    std::string id = configId;
+    std::string url = cfg->apiUrl;
+
+    web::WebRequest req;
+    req.header("User-Agent", "GeodeMod/ListsIntegrations");
+
+    async::spawn(
+        req.get(url),
+        [this, id](web::WebResponse res) {
+            if (!res.ok()) {
+                log::error(
+                    "[ListsIntegrations] Failed to fetch '{}': HTTP {}",
+                    id,
+                    res.code()
+                );
+                m_cache[id].isLoading = false;
+                return;
             }
 
-            badge->setPosition(CCPointMake(0.f, yOffset));
+            auto body = res.string().unwrapOr("");
+            if (body.empty()) {
+                log::error("[ListsIntegrations] Empty response for '{}'", id);
+                m_cache[id].isLoading = false;
+                return;
+            }
 
-            this->addChild(badge);
+            if (id == "aredl") {
+                parseAREdl(id, body);
+            }
+            else if (id == "narll") {
+                parseNarll(id, body);
+            }
+            else if (id == "demonlist") {
+                parseDemonlist(id, body);
+            }
+            else {
+                parseGeneric(id, body);
+            }
 
-            yOffset += badge->getContentHeight() + gap;
+            m_cache[id].fetchedAt = std::chrono::system_clock::now();
+            m_cache[id].isLoading = false;
+            notifyUpdated(id);
 
-            if (badge->getContentWidth() > maxW) {
-                maxW = badge->getContentWidth();
+            log::info("[ListsIntegrations] Updated '{}'", id);
+        }
+    );
+}
+
+void ListManager::parseAREdl(const std::string& configId, const std::string& json) {
+    auto parsed = matjson::parse(json);
+    if (parsed.isErr()) {
+        log::error("[ListsIntegrations] AREDL JSON parse failed");
+        return;
+    }
+
+    auto arr = parsed.unwrap();
+    if (!arr.isArray()) return;
+
+    ListConfig* cfg = nullptr;
+    for (auto& c : m_configs) {
+        if (c.id == configId) {
+            cfg = &c;
+            break;
+        }
+    }
+    if (!cfg) return;
+
+    auto& cache = m_cache[configId];
+    cache.entries.clear();
+
+    int pos = 1;
+    for (auto& item : arr.asArray().unwrap()) {
+        if (!item.isObject()) {
+            pos++;
+            continue;
+        }
+
+        int levelId = -1;
+        if (item.contains("level_id") && item["level_id"].isNumber()) {
+            levelId = item["level_id"].asInt().unwrapOr(-1);
+        }
+
+        if (levelId <= 0) {
+            pos++;
+            continue;
+        }
+
+        std::string name = "";
+        if (item.contains("name") && item["name"].isString()) {
+            name = item["name"].asString().unwrapOr("");
+        }
+
+        int rank = pos;
+        if (item.contains("position") && item["position"].isNumber()) {
+            rank = item["position"].asInt().unwrapOr(pos);
+        }
+
+        cache.entries[levelId].push_back({
+            configId,
+            cfg->name,
+            cfg->color,
+            rank,
+            name
+        });
+
+        pos++;
+    }
+
+    log::info("[ListsIntegrations] AREDL loaded {} entries", cache.entries.size());
+}
+
+void ListManager::parseNarll(const std::string& configId, const std::string& json) {
+    auto parsed = matjson::parse(json);
+    if (parsed.isErr()) {
+        log::error("[ListsIntegrations] NARLL JSON parse failed");
+        return;
+    }
+
+    auto arr = parsed.unwrap();
+    if (!arr.isArray()) {
+        log::error("[ListsIntegrations] NARLL response is not an array");
+        return;
+    }
+
+    ListConfig* cfg = nullptr;
+    for (auto& c : m_configs) {
+        if (c.id == configId) {
+            cfg = &c;
+            break;
+        }
+    }
+    if (!cfg) return;
+
+    auto& cache = m_cache[configId];
+    cache.entries.clear();
+
+    int rank = 1;
+    for (auto& item : arr.asArray().unwrap()) {
+        int levelId = -1;
+
+        if (item.isNumber()) {
+            levelId = item.asInt().unwrapOr(-1);
+        }
+        else if (item.isObject()) {
+            for (auto key : { "level_id", "id", "levelId", "gd_id" }) {
+                if (item.contains(key) && item[key].isNumber()) {
+                    levelId = item[key].asInt().unwrapOr(-1);
+                    if (levelId > 0) break;
+                }
             }
         }
 
-        this->setContentSize(
-            CCSizeMake(maxW, yOffset)
-        );
+        if (levelId <= 0) {
+            rank++;
+            continue;
+        }
 
-        return true;
+        cache.entries[levelId].push_back({
+            configId,
+            cfg->name,
+            cfg->color,
+            rank,
+            ""
+        });
+
+        rank++;
     }
-};
+
+    log::info("[ListsIntegrations] NARLL loaded {} entries", cache.entries.size());
+}
+
+void ListManager::parseDemonlist(const std::string& configId, const std::string& json) {
+    auto parsed = matjson::parse(json);
+    if (parsed.isErr()) {
+        log::error("[ListsIntegrations] Demonlist JSON parse failed");
+        return;
+    }
+
+    auto arr = parsed.unwrap();
+    if (!arr.isArray()) return;
+
+    ListConfig* cfg = nullptr;
+    for (auto& c : m_configs) {
+        if (c.id == configId) {
+            cfg = &c;
+            break;
+        }
+    }
+    if (!cfg) return;
+
+    auto& cache = m_cache[configId];
+    cache.entries.clear();
+
+    for (auto& item : arr.asArray().unwrap()) {
+        if (!item.isObject()) continue;
+
+        auto* demonPtr = item.contains("demon") ? &item["demon"] : &item;
+
+        int levelId = -1;
+        if (demonPtr->contains("level_id") && (*demonPtr)["level_id"].isNumber()) {
+            levelId = (*demonPtr)["level_id"].asInt().unwrapOr(-1);
+        }
+
+        if (levelId <= 0) continue;
+
+        int rank = -1;
+        if (demonPtr->contains("position") && (*demonPtr)["position"].isNumber()) {
+            rank = (*demonPtr)["position"].asInt().unwrapOr(-1);
+        }
+
+        std::string name = "";
+        if (demonPtr->contains("name") && (*demonPtr)["name"].isString()) {
+            name = (*demonPtr)["name"].asString().unwrapOr("");
+        }
+
+        cache.entries[levelId].push_back({
+            configId,
+            cfg->name,
+            cfg->color,
+            rank,
+            name
+        });
+    }
+
+    log::info("[ListsIntegrations] Demonlist loaded {} entries", cache.entries.size());
+}
+
+void ListManager::parseGeneric(const std::string& configId, const std::string& json) {
+    auto parsed = matjson::parse(json);
+    if (parsed.isErr()) {
+        log::error("[ListsIntegrations] Generic list '{}' JSON parse failed", configId);
+        return;
+    }
+
+    auto& root = parsed.unwrap();
+
+    matjson::Value* arr = nullptr;
+    if (root.isArray()) {
+        arr = &root;
+    }
+    else if (root.isObject() && root.contains("data") && root["data"].isArray()) {
+        arr = &root["data"];
+    }
+    else {
+        log::warn("[ListsIntegrations] Generic list '{}' - unrecognized JSON structure", configId);
+        return;
+    }
+
+    ListConfig* cfg = nullptr;
+    for (auto& c : m_configs) {
+        if (c.id == configId) {
+            cfg = &c;
+            break;
+        }
+    }
+    if (!cfg) return;
+
+    auto& cache = m_cache[configId];
+    cache.entries.clear();
+
+    int pos = 1;
+    for (auto& item : arr->asArray().unwrap()) {
+        if (!item.isObject()) {
+            pos++;
+            continue;
+        }
+
+        int levelId = -1;
+        for (auto key : { "level_id", "id", "levelId", "gd_id" }) {
+            if (item.contains(key) && item[key].isNumber()) {
+                levelId = item[key].asInt().unwrapOr(-1);
+                if (levelId > 0) break;
+            }
+        }
+
+        if (levelId <= 0) {
+            pos++;
+            continue;
+        }
+
+        int rank = pos;
+        for (auto key : { "position", "rank", "placement" }) {
+            if (item.contains(key) && item[key].isNumber()) {
+                rank = item[key].asInt().unwrapOr(pos);
+                break;
+            }
+        }
+
+        std::string name = "";
+        for (auto key : { "name", "title", "level_name" }) {
+            if (item.contains(key) && item[key].isString()) {
+                name = item[key].asString().unwrapOr("");
+                break;
+            }
+        }
+
+        cache.entries[levelId].push_back({
+            configId,
+            cfg->name,
+            cfg->color,
+            rank,
+            name
+        });
+
+        pos++;
+    }
+
+    log::info(
+        "[ListsIntegrations] Generic '{}' loaded {} entries",
+        configId,
+        cache.entries.size()
+    );
+}
+
+std::vector<ListEntry> ListManager::getEntriesForLevel(int levelID) {
+    std::vector<ListEntry> result;
+
+    for (auto& [id, cache] : m_cache) {
+        auto it = cache.entries.find(levelID);
+        if (it == cache.entries.end()) continue;
+
+        for (auto& entry : it->second) {
+            result.push_back(entry);
+        }
+    }
+
+    return result;
+}
+
+bool ListManager::isAnyListLoading() const {
+    for (auto& [id, cache] : m_cache) {
+        if (cache.isLoading) return true;
+    }
+    return false;
+}
+
+void ListManager::notifyUpdated(const std::string& configId) {
+    for (auto& cb : m_updateCallbacks) {
+        cb(configId);
+    }
+}
