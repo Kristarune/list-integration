@@ -7,241 +7,108 @@
 
 using namespace geode::prelude;
 
-// -------------------------------------------------------
-// Badge tag
-// -------------------------------------------------------
+static constexpr int BADGE_TAG = 0x4C495354; // "LIST"
 
-static constexpr int BADGE_TAG = 0x4C495354;
+template <class F>
+static void visitNodes(CCNode* node, F&& fn) {
+    if (!node) return;
+    fn(node);
 
-// -------------------------------------------------------
-// Get level ID safely
-// -------------------------------------------------------
+    auto children = node->getChildren();
+    if (!children) return;
+
+    for (auto* child : CCArrayExt<CCNode*>(children)) {
+        visitNodes(child, fn);
+    }
+}
 
 static int getLevelId(LevelCell* cell) {
-    if (!cell) {
-        return -1;
-    }
-
-    if (!cell->m_level) {
-        return -1;
-    }
-
+    if (!cell || !cell->m_level) return -1;
     return cell->m_level->m_levelID.value();
 }
 
-// -------------------------------------------------------
-// LEVEL CELL HOOK
-// -------------------------------------------------------
+static CCPoint getBadgePosition(LevelCell* cell, CCNode* badge) {
+    auto setting = Mod::get()->getSettingValue<std::string>("badge-position");
+    auto cellSize = cell->getContentSize();
 
-struct ListsIntegrationsLevelCellHook :
-    Modify<ListsIntegrationsLevelCellHook, LevelCell> {
+    float bw = badge->getContentWidth();
+    float bh = badge->getContentHeight();
+    constexpr float margin = 4.f;
 
+    if (setting == "Top Left") {
+        return { margin + bw / 2.f, cellSize.height - margin - bh / 2.f };
+    }
+    if (setting == "Bottom Left") {
+        return { margin + bw / 2.f, margin + bh / 2.f };
+    }
+    if (setting == "Bottom Right") {
+        return { cellSize.width - margin - bw / 2.f, margin + bh / 2.f };
+    }
+
+    return { cellSize.width - margin - bw / 2.f, cellSize.height - margin - bh / 2.f };
+}
+
+struct ListsIntegrationsLevelCellHook : Modify<ListsIntegrationsLevelCellHook, LevelCell> {
     void loadCustomLevelCell() {
         LevelCell::loadCustomLevelCell();
-
         addListBadges(this);
     }
 
     static void addListBadges(LevelCell* cell) {
-        if (!cell) {
-            return;
-        }
-
-        // ---------------------------------------------------
-        // SETTINGS CHECK
-        // ---------------------------------------------------
-
-        if (!Mod::get()->getSettingValue<bool>("show-badges")) {
-            return;
-        }
-
-        // ---------------------------------------------------
-        // LEVEL ID
-        // ---------------------------------------------------
+        if (!cell) return;
+        if (!Mod::get()->getSettingValue<bool>("show-badges")) return;
 
         int levelId = getLevelId(cell);
-
-        if (levelId <= 0) {
-            return;
-        }
-
-        // ---------------------------------------------------
-        // REMOVE OLD BADGES
-        // ---------------------------------------------------
+        if (levelId <= 0) return;
 
         if (auto* old = cell->getChildByTag(BADGE_TAG)) {
             old->removeFromParent();
         }
 
-        // ---------------------------------------------------
-        // GET LIST ENTRIES
-        // ---------------------------------------------------
+        auto entries = ListManager::get()->getEntriesForLevel(levelId);
+        if (entries.empty()) return;
 
-        auto entries =
-            ListManager::get()->getEntriesForLevel(levelId);
+        bool showRank = Mod::get()->getSettingValue<bool>("show-rank");
 
-        // ---------------------------------------------------
-        // DEBUG TEST BADGE
-        // Uncomment this if badges still don't show
-        // ---------------------------------------------------
-
-        /*
-        entries.push_back({
-            "test",
-            "TEST",
-            "#FF0000",
-            1,
-            "Test"
-        });
-        */
-
-        if (entries.empty()) {
-            return;
-        }
-
-        bool showRank =
-            Mod::get()->getSettingValue<bool>("show-rank");
-
-        // ---------------------------------------------------
-        // CREATE CONTAINER
-        // ---------------------------------------------------
-
-        auto* container =
-            ListBadgeContainer::create(entries, showRank);
-
-        if (!container) {
-            log::error(
-                "[ListsIntegrations] Failed to create badge container"
-            );
-            return;
-        }
+        auto* container = ListBadgeContainer::create(entries, showRank);
+        if (!container) return;
 
         container->setTag(BADGE_TAG);
-
-        // ---------------------------------------------------
-        // FORCE TOP RIGHT POSITION
-        // ---------------------------------------------------
-
         container->setAnchorPoint({ 0.f, 1.f });
 
-        float x =
-            cell->getContentSize().width -
-            container->getContentWidth() -
-            6.f;
-
-        float y =
-            cell->getContentSize().height -
-            6.f;
+        float x = cell->getContentSize().width - container->getContentWidth() - 6.f;
+        float y = cell->getContentSize().height - 6.f;
 
         container->setPosition({ x, y });
-
-        // ---------------------------------------------------
-        // HIGH Z ORDER
-        // ---------------------------------------------------
-
         cell->addChild(container, 999);
-
-        // ---------------------------------------------------
-        // DEBUG LOG
-        // ---------------------------------------------------
-
-        log::info(
-            "[ListsIntegrations] Added badge to level {} at ({}, {})",
-            levelId,
-            x,
-            y
-        );
     }
 };
 
-// -------------------------------------------------------
-// LEVEL BROWSER HOOK
-// -------------------------------------------------------
-
-struct ListsIntegrationsLevelBrowserHook :
-    Modify<ListsIntegrationsLevelBrowserHook, LevelBrowserLayer> {
-
+struct ListsIntegrationsLevelBrowserHook : Modify<ListsIntegrationsLevelBrowserHook, LevelBrowserLayer> {
     bool init(GJSearchObject* searchObject) {
         if (!LevelBrowserLayer::init(searchObject)) {
             return false;
         }
 
-        log::info(
-            "[ListsIntegrations] LevelBrowserLayer initialized"
-        );
-
-        // ---------------------------------------------------
-        // FETCH LISTS
-        // ---------------------------------------------------
-
         ListManager::get()->fetchAllLists();
 
-        // ---------------------------------------------------
-        // UPDATE CALLBACK
-        // ---------------------------------------------------
-
-        ListManager::get()->onListUpdated(
-            [this](const std::string& id) {
-                log::info(
-                    "[ListsIntegrations] List updated: {}",
-                    id
-                );
-
-                refreshBadges();
-            }
-        );
+        ListManager::get()->onListUpdated([this](const std::string&) {
+            refreshBadges();
+        });
 
         return true;
     }
 
     void refreshBadges() {
-        auto* listLayer =
-            this->getChildByType<GJListLayer>(0);
-
-        if (!listLayer) {
-            log::warn(
-                "[ListsIntegrations] No GJListLayer found"
-            );
-            return;
-        }
-
-        auto* table =
-            listLayer->getChildByType<TableView>(0);
-
-        if (!table) {
-            log::warn(
-                "[ListsIntegrations] No TableView found"
-            );
-            return;
-        }
-
-        auto* children = table->getChildren();
-
-        if (!children) {
-            log::warn(
-                "[ListsIntegrations] TableView has no children"
-            );
-            return;
-        }
-
         int refreshed = 0;
 
-        for (auto* node : CCArrayExt<CCNode*>(children)) {
-            auto* cell =
-                typeinfo_cast<LevelCell*>(node);
-
-            if (!cell) {
-                continue;
+        visitNodes(this, [&](CCNode* node) {
+            if (auto* cell = typeinfo_cast<LevelCell*>(node)) {
+                ListsIntegrationsLevelCellHook::addListBadges(cell);
+                refreshed++;
             }
+        });
 
-            ListsIntegrationsLevelCellHook::addListBadges(cell);
-
-            refreshed++;
-        }
-
-        log::info(
-            "[ListsIntegrations] Refreshed {} cells",
-            refreshed
-        );
+        log::info("[ListsIntegrations] Refreshed {} cells", refreshed);
     }
 };
